@@ -48,6 +48,7 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.os.HandlerThread;
 import android.os.Message;
+import android.os.PowerManager;
 import android.support.annotation.NonNull;
 import android.support.v13.app.FragmentCompat;
 import android.support.v4.content.ContextCompat;
@@ -320,7 +321,7 @@ public class Camera2BasicFragment extends Fragment
                 }
                 case STATE_FOCUSE: {
                     // Just get focus correct for preview
-                    Integer afState = result.get(CaptureResult.CONTROL_AF_STATE);
+
                     mState = STATE_PREVIEW;
 
                     break;
@@ -588,11 +589,18 @@ public class Camera2BasicFragment extends Fragment
         mTextureView = (AutoFitTextureView) view.findViewById(R.id.texture);
     }
 
+    /**
+     * wake lock
+     */
+    private PowerManager.WakeLock mWakeLock;
 
     @Override
     public void onActivityCreated(Bundle savedInstanceState) {
         super.onActivityCreated(savedInstanceState);
-        mFile = new File(getActivity().getExternalFilesDir(null), "pic.jpg");
+//        mFile = new File(getActivity().getExternalFilesDir(null), "pic.jpg");
+
+        PowerManager powerManager = (PowerManager)getActivity().getSystemService(Context.POWER_SERVICE);
+        mWakeLock = powerManager.newWakeLock(PowerManager.FULL_WAKE_LOCK, "My Lock");
     }
 
     @Override
@@ -609,10 +617,16 @@ public class Camera2BasicFragment extends Fragment
         } else {
             mTextureView.setSurfaceTextureListener(mSurfaceTextureListener);
         }
+
+        // Lock the screen to prevent going sleep again
+
+        mWakeLock.acquire();
+
     }
 
     @Override
     public void onPause() {
+        mWakeLock.release();
         closeCamera();
         stopBackgroundThread();
         super.onPause();
