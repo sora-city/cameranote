@@ -47,6 +47,7 @@ import android.media.ImageReader;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.HandlerThread;
+import android.os.Message;
 import android.support.annotation.NonNull;
 import android.support.v13.app.FragmentCompat;
 import android.support.v4.content.ContextCompat;
@@ -59,6 +60,7 @@ import android.view.Surface;
 import android.view.TextureView;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.EditText;
 import android.widget.Toast;
 
 import java.io.File;
@@ -70,6 +72,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
+import java.util.UUID;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
 
@@ -188,8 +191,6 @@ public class Camera2BasicFragment extends Fragment
      */
     private Size mPreviewSize;
 
-
-
     /**
      * {@link CameraDevice.StateCallback} is called when {@link CameraDevice} changes its state.
      */
@@ -241,8 +242,21 @@ public class Camera2BasicFragment extends Fragment
     /**
      * This is the output file for our picture.
      */
+    private String mSessionName = "";
+
+    String genUniqueName (String name ) {
+        return name + UUID.randomUUID().toString();
+    }
+    String genTimestampedName (String name ) { return name + System.currentTimeMillis(); }
+
     private File mFile;
 
+    boolean createImageFile () {
+        String fname = genTimestampedName( "slide");
+
+        mFile = new File (mSessionName + "/" + fname + ".jpg");
+        return true;
+    }
     /**
      * This a callback object for the {@link ImageReader}. "onImageAvailable" will be called when a
      * still image is ready to be saved.
@@ -252,7 +266,10 @@ public class Camera2BasicFragment extends Fragment
 
         @Override
         public void onImageAvailable(ImageReader reader) {
-            mBackgroundHandler.post(new ImageSaver(reader.acquireNextImage(), mFile));
+            if ( createImageFile () ) {
+                showToast( "image " + mFile.getPath() + " saved!");
+                mBackgroundHandler.post(new ImageSaver(reader.acquireNextImage(), mFile));
+            }
         }
 
     };
@@ -302,6 +319,7 @@ public class Camera2BasicFragment extends Fragment
                     break;
                 }
                 case STATE_FOCUSE: {
+                    // Just get focus correct for preview
                     Integer afState = result.get(CaptureResult.CONTROL_AF_STATE);
                     mState = STATE_PREVIEW;
 
@@ -440,6 +458,10 @@ public class Camera2BasicFragment extends Fragment
 
     public int zoom_level = 1;
 
+    /**
+     * Computer the zoom Rect
+     * @return
+     */
     Rect getZoomRect () {
 
         try {
@@ -470,6 +492,7 @@ public class Camera2BasicFragment extends Fragment
 
         return null;
     }
+
     @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container,
                              Bundle savedInstanceState) {
@@ -560,9 +583,11 @@ public class Camera2BasicFragment extends Fragment
     @Override
     public void onViewCreated(final View view, Bundle savedInstanceState) {
         view.findViewById(R.id.picture).setOnClickListener(this);
+        view.findViewById(R.id.newsession).setOnClickListener(this);
         view.findViewById(R.id.info).setOnClickListener(this);
         mTextureView = (AutoFitTextureView) view.findViewById(R.id.texture);
     }
+
 
     @Override
     public void onActivityCreated(Bundle savedInstanceState) {
@@ -916,6 +941,7 @@ public class Camera2BasicFragment extends Fragment
             e.printStackTrace();
         }
     }
+
     /**
      * Lock the focus as the first step for a still image capture.
      */
@@ -986,8 +1012,6 @@ public class Camera2BasicFragment extends Fragment
                 public void onCaptureCompleted(@NonNull CameraCaptureSession session,
                                                @NonNull CaptureRequest request,
                                                @NonNull TotalCaptureResult result) {
-                    showToast("Saved: " + mFile);
-                    Log.d(TAG, mFile.toString());
                     unlockFocus();
                 }
             };
@@ -1036,11 +1060,68 @@ public class Camera2BasicFragment extends Fragment
         }
     }
 
+    private boolean newSession () {
+        mSessionName = "";
+
+        String name = genUniqueName( "session-");
+        final EditText taskEditText = new EditText(getActivity());
+        taskEditText.setText(name);
+
+        final Handler handler = new Handler () {
+            @Override
+            public void handleMessage ( Message msg ) {
+                String name = String.valueOf(taskEditText.getText());
+                File dir = new File ( getActivity().getExternalFilesDir(null).getPath() + "/" + name );
+                if (dir.exists()) {
+                    showToast( dir.getPath() + " exists!");
+                } else
+                {
+                    if ( dir.mkdir() ) {
+                        mSessionName = dir.getPath();
+                    }
+                }
+
+            }
+        };
+
+        AlertDialog dialog = new AlertDialog.Builder(getActivity())
+                .setTitle("Confirm")
+                .setMessage("Session Name")
+                .setView(taskEditText)
+                .setPositiveButton("Add", new DialogInterface.OnClickListener() {
+                    @Override
+                    public void onClick(DialogInterface dialog, int which) {
+                        handler.sendMessage( handler.obtainMessage() );
+
+                    }
+                })
+                .setNegativeButton("Cancel", null)
+                .create();
+        dialog.show();
+
+        // try to create folder for session
+
+        return true;
+    }
+
+
     @Override
     public void onClick(View view) {
         switch (view.getId()) {
             case R.id.picture: {
-                takePicture();
+                if ( mSessionName.equals("")) {
+                    MessageBox( "Please create a session first!");
+                } else {
+//                    createImageFile();
+                    takePicture();
+                }
+
+                break;
+            }
+            case R.id.newsession: {
+                 newSession();
+
+                // confirm the name
                 break;
             }
             case R.id.info: {
@@ -1121,6 +1202,15 @@ public class Camera2BasicFragment extends Fragment
 
     }
 
+    public void MessageBox ( String msg ) {
+        AlertDialog.Builder dlgAlert  = new AlertDialog.Builder(getActivity())
+                .setMessage(msg)
+                .setTitle("Alert")
+                .setPositiveButton("OK", null)
+                .setCancelable(true);
+        dlgAlert.create();
+        dlgAlert.show();
+    }
     /**
      * Shows an error message dialog.
      */
