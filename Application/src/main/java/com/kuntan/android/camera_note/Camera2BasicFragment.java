@@ -24,6 +24,7 @@ import android.app.DialogFragment;
 import android.app.Fragment;
 import android.content.Context;
 import android.content.DialogInterface;
+import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.content.res.Configuration;
 import android.graphics.ImageFormat;
@@ -44,6 +45,7 @@ import android.hardware.camera2.TotalCaptureResult;
 import android.hardware.camera2.params.StreamConfigurationMap;
 import android.media.Image;
 import android.media.ImageReader;
+import android.net.Uri;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.HandlerThread;
@@ -55,6 +57,7 @@ import android.support.v4.content.ContextCompat;
 import android.util.Log;
 import android.util.Size;
 import android.util.SparseIntArray;
+import android.view.KeyEvent;
 import android.view.LayoutInflater;
 import android.view.MotionEvent;
 import android.view.Surface;
@@ -240,11 +243,6 @@ public class Camera2BasicFragment extends Fragment
      */
     private ImageReader mImageReader;
 
-    /**
-     * This is the output file for our picture.
-     */
-    private String mSessionName = "";
-
     String genUniqueName (String name ) {
         return name + UUID.randomUUID().toString();
     }
@@ -252,10 +250,13 @@ public class Camera2BasicFragment extends Fragment
 
     private File mFile;
 
+    CameraActivity getMyActivity () {
+        return (CameraActivity) getActivity();
+    }
     boolean createImageFile () {
         String fname = genTimestampedName( "slide");
 
-        mFile = new File (mSessionName + "/" + fname + ".jpg");
+        mFile = new File (getMyActivity().mSessionName + "/" + fname + ".jpg");
         return true;
     }
     /**
@@ -498,7 +499,12 @@ public class Camera2BasicFragment extends Fragment
     public View onCreateView(LayoutInflater inflater, ViewGroup container,
                              Bundle savedInstanceState) {
         View view = inflater.inflate(R.layout.fragment_camera2_basic, container, false);
-
+        view.setOnKeyListener( new View.OnKeyListener() {
+            public boolean onKey (View v, int keycode, KeyEvent event ) {
+                showToast( "key pressed " + keycode );
+                return false;
+            }
+        });
         view.setOnTouchListener( new View.OnTouchListener() {
 
             public boolean onTouch(View v, MotionEvent event) {
@@ -1075,7 +1081,7 @@ public class Camera2BasicFragment extends Fragment
     }
 
     private boolean newSession () {
-        mSessionName = "";
+        getMyActivity().mSessionName = "";
 
         String name = genUniqueName( "session-");
         final EditText taskEditText = new EditText(getActivity());
@@ -1091,7 +1097,7 @@ public class Camera2BasicFragment extends Fragment
                 } else
                 {
                     if ( dir.mkdir() ) {
-                        mSessionName = dir.getPath();
+                        getMyActivity().mSessionName = dir.getPath();
                     }
                 }
 
@@ -1123,7 +1129,7 @@ public class Camera2BasicFragment extends Fragment
     public void onClick(View view) {
         switch (view.getId()) {
             case R.id.picture: {
-                if ( mSessionName.equals("")) {
+                if ( getMyActivity().mSessionName.equals("")) {
                     MessageBox( "Please create a session first!");
                 } else {
 //                    createImageFile();
@@ -1141,10 +1147,20 @@ public class Camera2BasicFragment extends Fragment
             case R.id.info: {
                 Activity activity = getActivity();
                 if (null != activity) {
-                    new AlertDialog.Builder(activity)
-                            .setMessage(R.string.intro_message)
-                            .setPositiveButton(android.R.string.ok, null)
-                            .show();
+                    String path = activity.getExternalFilesDir(getMyActivity().mSessionName).getPath();
+
+                    MessageBox( "folder path : " + path + "\nTake button: (570, 1649) (511, 1642)");
+
+                    // try to open the folder
+//                    Intent intent = new Intent(Intent.ACTION_GET_CONTENT);
+//                    Uri uri = Uri.parse("file://" + path);
+//                    intent.setDataAndType(uri, "file/*");
+//                    startActivity(Intent.createChooser(intent, "Open folder"));
+
+ //                   new AlertDialog.Builder(activity)
+ //                           .setMessage( path )
+ //                           .setPositiveButton(android.R.string.ok, null)
+ //                           .show();
                 }
                 break;
             }

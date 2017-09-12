@@ -21,6 +21,11 @@ import android.os.Bundle;
 
 public class CameraActivity extends Activity {
 
+    /**
+     * This is the output file for our picture.
+     */
+    public String mSessionName = "";
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -29,8 +34,14 @@ public class CameraActivity extends Activity {
             getFragmentManager().beginTransaction()
                     .replace(R.id.container, Camera2BasicFragment.newInstance())
                     .commit();
+        } else {
+            mSessionName = savedInstanceState.getString("session");
         }
     }
 
-
+    @Override
+    protected  void onSaveInstanceState ( Bundle outState ) {
+        super.onSaveInstanceState( outState );
+        outState.putString( "session", mSessionName );
+    }
 }
